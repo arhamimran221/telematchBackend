@@ -1,5 +1,6 @@
 const db = require("../config/db");
 const admin = require("firebase-admin");
+var serviceAccount = require("../serviceAccountKey.json");
 
 // Get notifications
 exports.getNotifications = async (req, res) => {
@@ -12,7 +13,7 @@ exports.getNotifications = async (req, res) => {
 };
 
 admin.initializeApp({
-  credential: admin.credential.applicationDefault(),
+  credential: admin.credential.cert(serviceAccount),
 });
 
 exports.createNotification = async (req, res) => {
@@ -47,17 +48,27 @@ exports.createNotification = async (req, res) => {
     const registrationToken = users[0].registration_token;
 
     // Prepare the push notification payload
-    const payload = {
+    const message = {
       notification: {
         title: header,
         body: body,
       },
+      android: {
+        notification: {
+          sound: "default",
+        },
+        data: {
+          title: header,
+          body: body,
+        },
+      },
+      token: registrationToken,
     };
 
     // Send push notification to the user's registration token
     admin
       .messaging()
-      .sendToDevice(registrationToken, payload) // Correct method to use with a single registration token
+      .send(message) // Correct method to use with a single registration token
       .then((response) => {
         console.log("Successfully sent message:", response);
         res.status(201).json({
