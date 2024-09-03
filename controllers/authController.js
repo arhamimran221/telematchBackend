@@ -4,14 +4,15 @@ const jwt = require("jsonwebtoken");
 
 // User registration
 exports.register = async (req, res) => {
-  const { name, email, password } = req.body;
+  const { name, email, password, registration_token } = req.body; // Include token in the destructure
 
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
     const [rows] = await db.execute(
-      "INSERT INTO users (username, password, first_name) VALUES (?, ?, ?)",
-      [email, hashedPassword, name]
+      "INSERT INTO users (username, password, first_name , registration_token) VALUES (?, ?, ?, ?)",
+      [email, hashedPassword, name, registration_token]
     );
+
     res
       .status(201)
       .json({ message: "User registered successfully", userId: rows.insertId });

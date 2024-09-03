@@ -16,26 +16,37 @@ admin.initializeApp({
 });
 
 exports.createNotification = async (req, res) => {
-  const { header, body } = req.body;
+  const { header, body, userId } = req.body; // Include userId in request body
 
   // Validate input
-  if (!header || !body) {
-    return res.status(400).json({ error: "Header and body are required." });
+  if (!header || !body || !userId) {
+    return res
+      .status(400)
+      .json({ error: "Header, body, and userId are required." });
   }
 
   try {
+    // Insert the notification into the database
     const [result] = await db.execute(
       "INSERT INTO notifications (header, body) VALUES (?, ?)",
       [header, body]
     );
 
-    // Fetch all user device tokens from your database
+    // Fetch the registration token for the specified user
     const [users] = await db.execute(
-      "SELECT device_token FROM users WHERE device_token IS NOT NULL"
+      "SELECT registration_token FROM users WHERE id = ? AND registration_token IS NOT NULL",
+      [userId]
     );
-    const tokens = users.map((user) => user.device_token);
 
-    // Send push notification to all users
+    if (users.length === 0) {
+      return res
+        .status(404)
+        .json({ error: "User not found or user has no registration token." });
+    }
+
+    const registrationToken = users[0].registration_token;
+
+    // Prepare the push notification payload
     const payload = {
       notification: {
         title: header,
@@ -43,23 +54,23 @@ exports.createNotification = async (req, res) => {
       },
     };
 
-    if (tokens.length > 0) {
-      admin
-        .messaging()
-        .send(tokens, payload)
-        .then((response) => {
-          console.log("Successfully sent message:", response);
-        })
-        .catch((error) => {
-          console.error("Error sending message:", error);
+    // Send push notification to the user's registration token
+    admin
+      .messaging()
+      .sendToDevice(registrationToken, payload) // Correct method to use with a single registration token
+      .then((response) => {
+        console.log("Successfully sent message:", response);
+        res.status(201).json({
+          message: "Notification created and sent successfully",
+          notificationId: result.insertId,
         });
-    }
-
-    res.status(201).json({
-      message: "Notification created successfully",
-      notificationId: result.insertId,
-    });
+      })
+      .catch((error) => {
+        console.error("Error sending message:", error);
+        res.status(500).json({ error: "Failed to send notification" });
+      });
   } catch (error) {
+    console.error("Error creating notification:", error);
     res.status(500).json({ error: error.message });
   }
 };
