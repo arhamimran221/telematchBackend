@@ -10,14 +10,13 @@ exports.getNotifications = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
 exports.createNotification = async (req, res) => {
-  const { header, body, userId } = req.body; // Include userId in request body
+  const { header, body } = req.body; // Removed userId from request body
 
   // Validate input
-  if (!header || !body || !userId) {
-    return res
-      .status(400)
-      .json({ error: "Header, body, and userId are required." });
+  if (!header || !body) {
+    return res.status(400).json({ error: "Header and body are required." });
   }
 
   try {
@@ -27,19 +26,16 @@ exports.createNotification = async (req, res) => {
       [header, body]
     );
 
-    // Fetch the registration token for the specified user
+    // Fetch all users with a registration token
     const [users] = await db.execute(
-      "SELECT registration_token FROM users WHERE id = ? AND registration_token IS NOT NULL",
-      [userId]
+      "SELECT id, registration_token FROM users WHERE registration_token IS NOT NULL"
     );
 
     if (users.length === 0) {
       return res
         .status(404)
-        .json({ error: "User not found or user has no registration token." });
+        .json({ error: "No users found with registration tokens." });
     }
-
-    const registrationToken = users[0].registration_token;
 
     // Prepare the push notification payload
     const message = {
@@ -52,15 +48,21 @@ exports.createNotification = async (req, res) => {
           sound: "default",
         },
       },
-      token: registrationToken,
     };
 
-    // Send push notification to the user's registration token
-    await admin.messaging().send(message);
-    console.log("Successfully sent message");
+    // Send push notification to each user's registration token
+    const promises = users.map((user) => {
+      return admin.messaging().send({
+        ...message,
+        token: user.registration_token,
+      });
+    });
+
+    await Promise.all(promises);
+    console.log("Successfully sent messages to all users");
 
     res.status(201).json({
-      message: "Notification created and sent successfully",
+      message: "Notification created and sent successfully to all users",
       notificationId: result.insertId,
     });
   } catch (error) {
