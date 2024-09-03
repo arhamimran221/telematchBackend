@@ -130,28 +130,19 @@ exports.acceptNotification = async (req, res) => {
 
 // Snooze a notification
 exports.snoozeNotification = async (req, res) => {
-  const { id } = req.params;
+  const { id } = req.params; // The notification ID
+  const { userId } = req.body; // The user ID received from the frontend
+
+  // Validate input
+  if (!userId) {
+    return res.status(400).json({ error: "User ID is required." });
+  }
 
   try {
-    // Update the notification to mark it as snoozed
-    await db.execute("UPDATE notifications SET snoozed = 1 WHERE id = ?", [id]);
-
-    // Fetch the notification details and user registration token
-    const [notificationResult] = await db.execute(
-      "SELECT header, body, user_id FROM notifications WHERE id = ?",
-      [id]
-    );
-
-    if (notificationResult.length === 0) {
-      return res.status(404).json({ error: "Notification not found." });
-    }
-
-    const notification = notificationResult[0];
-
     // Fetch the user's registration token
     const [users] = await db.execute(
       "SELECT registration_token FROM users WHERE id = ? AND registration_token IS NOT NULL",
-      [notification.user_id]
+      [userId]
     );
 
     if (users.length === 0) {
@@ -161,6 +152,21 @@ exports.snoozeNotification = async (req, res) => {
     }
 
     const registrationToken = users[0].registration_token;
+
+    // Update the notification to mark it as snoozed
+    await db.execute("UPDATE notifications SET snoozed = 1 WHERE id = ?", [id]);
+
+    // Fetch the notification details
+    const [notificationResult] = await db.execute(
+      "SELECT header, body FROM notifications WHERE id = ?",
+      [id]
+    );
+
+    if (notificationResult.length === 0) {
+      return res.status(404).json({ error: "Notification not found." });
+    }
+
+    const notification = notificationResult[0];
 
     // Schedule a function to send a push notification after 30 minutes
     setTimeout(async () => {
@@ -183,7 +189,7 @@ exports.snoozeNotification = async (req, res) => {
       } catch (error) {
         console.error("Error sending snoozed notification:", error);
       }
-    }, 30); // 30 minutes in milliseconds
+    }, 1800000); // 30 minutes in milliseconds
 
     res.json({ message: "Notification snoozed successfully." });
   } catch (error) {
