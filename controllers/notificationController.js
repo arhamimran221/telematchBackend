@@ -1,5 +1,5 @@
 const db = require("../config/db");
-const admin = require("firebase-admin");
+const admin = require("../firebase");
 
 // Get notifications
 exports.getNotifications = async (req, res) => {
@@ -10,7 +10,6 @@ exports.getNotifications = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
 exports.createNotification = async (req, res) => {
   const { header, body, userId } = req.body; // Include userId in request body
 
