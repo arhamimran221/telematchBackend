@@ -124,7 +124,58 @@ exports.snoozeNotification = async (req, res) => {
   const { id } = req.params;
 
   try {
+    // Update the notification to mark it as snoozed
     await db.execute("UPDATE notifications SET snoozed = 1 WHERE id = ?", [id]);
+
+    // Fetch the notification details and user registration token
+    const [notificationResult] = await db.execute(
+      "SELECT header, body, user_id FROM notifications WHERE id = ?",
+      [id]
+    );
+
+    if (notificationResult.length === 0) {
+      return res.status(404).json({ error: "Notification not found." });
+    }
+
+    const notification = notificationResult[0];
+
+    // Fetch the user's registration token
+    const [users] = await db.execute(
+      "SELECT registration_token FROM users WHERE id = ? AND registration_token IS NOT NULL",
+      [notification.user_id]
+    );
+
+    if (users.length === 0) {
+      return res
+        .status(404)
+        .json({ error: "User not found or user has no registration token." });
+    }
+
+    const registrationToken = users[0].registration_token;
+
+    // Schedule a function to send a push notification after 30 minutes
+    setTimeout(async () => {
+      const message = {
+        notification: {
+          title: notification.header,
+          body: notification.body,
+        },
+        android: {
+          notification: {
+            sound: "default",
+          },
+        },
+        token: registrationToken,
+      };
+
+      try {
+        await admin.messaging().send(message);
+        console.log("Snoozed notification sent successfully after 30 minutes.");
+      } catch (error) {
+        console.error("Error sending snoozed notification:", error);
+      }
+    }, 30); // 30 minutes in milliseconds
+
     res.json({ message: "Notification snoozed successfully." });
   } catch (error) {
     res.status(500).json({ error: error.message });
