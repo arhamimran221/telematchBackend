@@ -1,6 +1,5 @@
 const db = require("../config/db");
 const admin = require("firebase-admin");
-var serviceAccount = require("../serviceAccountKey.json");
 
 // Get notifications
 exports.getNotifications = async (req, res) => {
@@ -11,10 +10,6 @@ exports.getNotifications = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-});
 
 exports.createNotification = async (req, res) => {
   const { header, body, userId } = req.body; // Include userId in request body
@@ -57,29 +52,18 @@ exports.createNotification = async (req, res) => {
         notification: {
           sound: "default",
         },
-        data: {
-          title: header,
-          body: body,
-        },
       },
       token: registrationToken,
     };
 
     // Send push notification to the user's registration token
-    admin
-      .messaging()
-      .send(message) // Correct method to use with a single registration token
-      .then((response) => {
-        console.log("Successfully sent message:", response);
-        res.status(201).json({
-          message: "Notification created and sent successfully",
-          notificationId: result.insertId,
-        });
-      })
-      .catch((error) => {
-        console.error("Error sending message:", error);
-        res.status(500).json({ error: "Failed to send notification" });
-      });
+    await admin.messaging().send(message);
+    console.log("Successfully sent message");
+
+    res.status(201).json({
+      message: "Notification created and sent successfully",
+      notificationId: result.insertId,
+    });
   } catch (error) {
     console.error("Error creating notification:", error);
     res.status(500).json({ error: error.message });

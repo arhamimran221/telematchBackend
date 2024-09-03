@@ -5,6 +5,15 @@ const authRoutes = require("./routes/authRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
 const groupRoutes = require("./routes/groupRoutes");
 const cors = require("cors");
+const serviceAccount = require("../serviceAccountKey.json");
+const admin = require("firebase-admin");
+
+// Initialize Firebase Admin SDK
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+  });
+}
 
 dotenv.config();
 
