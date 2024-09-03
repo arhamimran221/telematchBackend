@@ -37,8 +37,8 @@ exports.createNotification = async (req, res) => {
         .json({ error: "No users found with registration tokens." });
     }
 
-    // Prepare the push notification payload
-    const message = {
+    // Prepare the push notification payload template
+    const messageTemplate = {
       notification: {
         title: header,
         body: body,
@@ -50,12 +50,21 @@ exports.createNotification = async (req, res) => {
       },
     };
 
-    // Send push notification to each user's registration token
+    // Send push notifications to each user's registration token
     const promises = users.map((user) => {
-      return admin.messaging().send({
-        ...message,
-        token: user.registration_token,
-      });
+      if (user.registration_token) {
+        // Check if the token exists
+        const message = {
+          ...messageTemplate,
+          token: user.registration_token, // Assign the token to each message
+        };
+        return admin.messaging().send(message);
+      } else {
+        console.warn(
+          `User with ID ${user.id} has no valid registration token.`
+        );
+        return Promise.resolve(); // Return a resolved promise if no valid token
+      }
     });
 
     await Promise.all(promises);
